@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
 import { Onboarding } from '@/components/Onboarding'
 import { AddBusiness } from '@/components/AddBusiness'
+import { Coffee, Calendar, Users, MapPin, BarChart3, Settings, Trash2 } from 'lucide-react'
+import { AutoArchiver } from '@/components/AutoArchiver'
 
 export default function Home() {
   const router = useRouter()
@@ -176,13 +178,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Auto-archive component - runs in background */}
+      <AutoArchiver />
+      
       {/* TOP HEADER BAR */}
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur">
         <div className="flex h-16 items-center px-6">
           {/* Logo */}
           <div className="flex items-center gap-3 mr-8">
-            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shadow-lg">
-              ☕
+            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
+              <Coffee className="w-6 h-6" />
             </div>
             <div className="hidden md:block">
               <h1 className="text-lg font-bold text-card-foreground">Morning Brew Empire</h1>
@@ -219,26 +224,33 @@ export default function Home() {
         <aside className="w-56 min-h-[calc(100vh-4rem)] border-r border-border bg-card px-3 py-6">
           <nav className="space-y-1">
             {[
-              { id: 'schedule', label: 'Schedule', icon: '📅' },
-              { id: 'employees', label: 'Employees', icon: '👥' },
-              { id: 'locations', label: 'Locations', icon: '📍' },
-              { id: 'reports', label: 'Reports', icon: '📊' },
-              { id: 'settings', label: 'Settings', icon: '⚙️' }
-            ].map((item) => (
+              { id: 'schedule', label: 'Schedule', icon: Calendar, href: null },
+              { id: 'employees', label: 'Employees', icon: Users, href: null },
+              { id: 'locations', label: 'Locations', icon: MapPin, href: null },
+              { id: 'reports', label: 'Reports', icon: BarChart3, href: '/reports' },
+              { id: 'settings', label: 'Settings', icon: Settings, href: null }
+            ].map((item) => {
+              const Icon = item.icon
+              return (
               <button
                 key={item.id}
-                onClick={() => setActiveNav(item.id)}
+                onClick={() => {
+                  if (item.href) {
+                    router.push(item.href)
+                  } else {
+                    setActiveNav(item.id)
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   activeNav === item.id
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-card-foreground'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <Icon className="w-4 h-4" />
                 {item.label}
               </button>
-            ))}
-          </nav>
+            )})}           </nav>
         </aside>
 
         {/* MAIN CONTENT AREA */}
@@ -257,7 +269,7 @@ export default function Home() {
                       {businesses.map(b => (
                         <SelectItem key={b.id} value={b.id}>
                           <div className="flex items-center gap-2">
-                            <span>📍</span>
+                            <MapPin className="w-3.5 h-3.5" />
                             <span>{b.name}</span>
                           </div>
                         </SelectItem>
@@ -302,8 +314,10 @@ export default function Home() {
                         window.location.reload()
                       }
                     }}
+                    className="gap-1"
                   >
-                    🗑️ Reset All Rosters
+                    <Trash2 className="w-4 h-4" />
+                    Reset All Rosters
                   </Button>
                 </div>
               </CardHeader>

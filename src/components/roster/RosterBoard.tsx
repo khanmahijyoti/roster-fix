@@ -4,6 +4,7 @@ import { DndContext, DragEndEvent, DragOverlay, pointerWithin } from '@dnd-kit/c
 import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 import { DraggableEmployee } from './DraggableEmployee'
 import { ShiftSlot } from './ShiftSlot'
+import { ShiftTimeManager } from '@/components/ShiftTimeManager'
 import { supabase } from '@/lib/supabase'
 
 interface RosterBoardProps {
@@ -12,24 +13,71 @@ interface RosterBoardProps {
   availability: Record<string, Record<string, boolean>>
 }
 
+interface ShiftData {
+  employee: any
+  start_time: string
+  end_time: string
+  hours_worked: number
+}
+
 export function RosterBoard({ employees, businessId, availability }: RosterBoardProps) {
-  const [assignments, setAssignments] = useState<Record<string, any>>({})
+  const [assignments, setAssignments] = useState<Record<string, ShiftData>>({})
+  const [editingSlot, setEditingSlot] = useState<{ day: string; shiftTime: string } | null>(null)
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   // 1. Load Shifts
   useEffect(() => {
     async function loadShifts() {
-      const { data } = await supabase.from('shifts').select(`*, employees (*)`).eq('business_id', businessId)
+      const { data } = await supabase
+        .from('shifts')
+        .select(`
+          *,
+          employees (*)
+        `)
+        .eq('business_id', businessId)
+      
       if (data) {
-        const newAssignments: Record<string, any> = {}
+        const newAssignments: Record<string, ShiftData> = {}
         data.forEach((shift: any) => {
-          newAssignments[`${shift.day_of_week}::${shift.shift_time}`] = shift.employees
+          const key = `${shift.day_of_week}::${shift.shift_time}`
+          newAssignments[key] = {
+            employee: shift.employees,
+            start_time: shift.start_time || '08:00',
+            end_time: shift.end_time || '17:00',
+            hours_worked: shift.hours_worked || 0
+          }
         })
         setAssignments(newAssignments)
       }
     }
     loadShifts()
   }, [businessId])
+
+  // Helper: Check if shift is in the past or currently running
+  function isShiftPast(day: string, shiftTime: string): boolean {
+    const now = new Date()
+    const currentDayIndex = now.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+    const currentTime = now.getHours() * 60 + now.getMinutes() // minutes since midnight
+    
+    const dayMap: Record<string, number> = {
+      'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    }
+    
+    const shiftDayIndex = dayMap[day]
+    
+    // If shift day is before current day in the week, it's past
+    if (shiftDayIndex < currentDayIndex) return true
+    
+    // If shift day is after current day, it's in the future
+    if (shiftDayIndex > currentDayIndex) return false
+    
+    // Same day - check time
+    // Morning shifts typically start at 08:00, afternoon at 14:00
+    const shiftStartMinutes = shiftTime === 'morning' ? 8 * 60 : 14 * 60
+    
+    // Shift has started if current time >= shift start time
+    return currentTime >= shiftStartMinutes
+  }
 
   // 2. Handle Drag
   async function handleDragEnd(event: DragEndEvent) {
@@ -39,6 +87,12 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
 
     const employee = active.data.current?.employee
     const [day, shiftTime] = (over.id as string).split('::')
+
+    // Check if shift is in the past
+    if (isShiftPast(day, shiftTime)) {
+      alert(`🚫 PAST SHIFT!\n\nYou cannot assign employees to shifts that have already started or ended.`)
+      return
+    }
 
     // 🛑 0. CHECK AVAILABILITY FIRST (for specific shift)
     const availKey = `${day}-${shiftTime}`
@@ -73,10 +127,18 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
       }
     }
 
-    // ✅ 2. NO CONFLICT? UPDATE UI
+    // ✅ 2. NO CONFLICT? UPDATE UI with default times
+    const defaultStartTime = shiftTime === 'morning' ? '08:00' : '14:00'
+    const defaultEndTime = shiftTime === 'morning' ? '14:00' : '23:00'
+    
     setAssignments((prev) => ({
       ...prev,
-      [over.id as string]: employee,
+      [over.id as string]: {
+        employee,
+        start_time: defaultStartTime,
+        end_time: defaultEndTime,
+        hours_worked: shiftTime === 'morning' ? 6 : 9
+      },
     }))
 
     // ✅ 3. SAVE TO DB (Using INSERT to prevent overwriting)
@@ -87,7 +149,9 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
         business_id: businessId,
         organization_id: employee.organization_id,
         day_of_week: day,
-        shift_time: shiftTime
+        shift_time: shiftTime,
+        start_time: defaultStartTime,
+        end_time: defaultEndTime
       })
 
     if (error) {
@@ -108,9 +172,15 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
   // 3. Handle Remove
   async function handleRemove(day: string, shiftTime: string) {
     const slotId = `${day}::${shiftTime}`
-    const employee = assignments[slotId]
+    const shiftData = assignments[slotId]
     
-    if (!employee) return
+    if (!shiftData) return
+
+    // Prevent removing past shifts
+    if (isShiftPast(day, shiftTime)) {
+      alert(`🚫 PAST SHIFT!\n\nYou cannot remove shifts that have already started or ended.`)
+      return
+    }
 
     // Optimistically remove from UI
     setAssignments((prev) => {
@@ -123,7 +193,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
     const { error } = await supabase
       .from('shifts')
       .delete()
-      .eq('employee_id', employee.id)
+      .eq('employee_id', shiftData.employee.id)
       .eq('business_id', businessId)
       .eq('day_of_week', day)
       .eq('shift_time', shiftTime)
@@ -133,8 +203,118 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
       // Revert UI if deletion failed
       setAssignments((prev) => ({
         ...prev,
-        [slotId]: employee
+        [slotId]: shiftData
       }))
+    }
+  }
+
+  // 4. Handle Edit Time
+  function handleEditTime(day: string, shiftTime: string) {
+    // Prevent editing past shifts
+    if (isShiftPast(day, shiftTime)) {
+      alert(`🚫 PAST SHIFT!\n\nYou cannot edit shift times that have already started or ended.`)
+      return
+    }
+    setEditingSlot({ day, shiftTime })
+  }
+
+  // 5. Save Shift Time
+  async function saveShiftTime(startTime: string, endTime: string, autoLinkAfternoon: boolean) {
+    if (!editingSlot) return
+
+    const { day, shiftTime } = editingSlot
+    const slotId = `${day}::${shiftTime}`
+    const shiftData = assignments[slotId]
+
+    if (!shiftData) return
+
+    // Calculate hours
+    const [startHour, startMin] = startTime.split(':').map(Number)
+    const [endHour, endMin] = endTime.split(':').map(Number)
+    let hours = endHour - startHour
+    let minutes = endMin - startMin
+    if (minutes < 0) {
+      hours -= 1
+      minutes += 60
+    }
+    const hoursWorked = hours + (minutes / 60)
+
+    // Update UI
+    setAssignments((prev) => ({
+      ...prev,
+      [slotId]: {
+        ...shiftData,
+        start_time: startTime,
+        end_time: endTime,
+        hours_worked: hoursWorked
+      }
+    }))
+
+    // Update database
+    const { error } = await supabase
+      .from('shifts')
+      .update({
+        start_time: startTime,
+        end_time: endTime
+      })
+      .eq('employee_id', shiftData.employee.id)
+      .eq('business_id', businessId)
+      .eq('day_of_week', day)
+      .eq('shift_time', shiftTime)
+
+    if (error) {
+      console.error("Update error:", error)
+      alert('Error updating shift times')
+      return
+    }
+
+    // If this is a morning shift and auto-link is enabled, update afternoon shift
+    if (shiftTime === 'morning' && autoLinkAfternoon) {
+      const afternoonSlotId = `${day}::afternoon`
+      const afternoonShift = assignments[afternoonSlotId]
+
+      // Calculate afternoon start time (morning end + 1 minute)
+      let newMin = endMin + 1
+      let newHour = endHour
+      if (newMin >= 60) {
+        newMin = 0
+        newHour += 1
+      }
+      const afternoonStartTime = `${String(newHour).padStart(2, '0')}:${String(newMin).padStart(2, '0')}`
+
+      // If afternoon shift exists, update it
+      if (afternoonShift) {
+        // Calculate new afternoon hours
+        const [aftEndHour, aftEndMin] = afternoonShift.end_time.split(':').map(Number)
+        let aftHours = aftEndHour - newHour
+        let aftMinutes = aftEndMin - newMin
+        if (aftMinutes < 0) {
+          aftHours -= 1
+          aftMinutes += 60
+        }
+        const aftHoursWorked = aftHours + (aftMinutes / 60)
+
+        // Update UI
+        setAssignments((prev) => ({
+          ...prev,
+          [afternoonSlotId]: {
+            ...afternoonShift,
+            start_time: afternoonStartTime,
+            hours_worked: aftHoursWorked
+          }
+        }))
+
+        // Update database
+        await supabase
+          .from('shifts')
+          .update({
+            start_time: afternoonStartTime
+          })
+          .eq('employee_id', afternoonShift.employee.id)
+          .eq('business_id', businessId)
+          .eq('day_of_week', day)
+          .eq('shift_time', 'afternoon')
+      }
     }
   }
 
@@ -145,14 +325,14 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
       collisionDetection={pointerWithin}
       autoScroll={false}
     >
-      <div className="flex h-full overflow-hidden">{/* Added overflow-hidden */}
-        {/* LEFT SIDEBAR: STAFF LIST (Fixed Width: w-72) */}
-        <div className="w-72 bg-card border-r border-border flex flex-col shrink-0 z-10">
-          <div className="p-4 border-b border-border bg-muted/30">
+      <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+        {/* LEFT SIDEBAR: STAFF LIST (Fixed Width on desktop, full width on mobile) */}
+        <div className="w-full lg:w-72 bg-card border-b lg:border-r lg:border-b-0 border-border flex flex-col shrink-0 z-10 max-h-[300px] lg:max-h-none">
+          <div className="p-3 sm:p-4 border-b border-border bg-muted/30">
              <h2 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Available Staff</h2>
              <p className="text-[10px] text-muted-foreground/70 mt-1">Drag to assign shifts</p>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
             {employees.map((emp) => (
               <DraggableEmployee key={emp.id} employee={emp} availability={availability[emp.id] || {}} />
             ))}
@@ -160,13 +340,13 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
         </div>
 
         {/* RIGHT: CALENDAR GRID (Flexible) */}
-        <div className="flex-1 overflow-auto bg-background p-8">
-          {/* We add min-w-[1260px] to force horizontal scroll if screen is too small */}
-          <div className="grid grid-cols-7 gap-5 min-w-[1260px]">
+        <div className="flex-1 overflow-auto bg-background p-4 sm:p-6 lg:p-8">
+          {/* Force horizontal scroll on smaller screens */}
+          <div className="grid grid-cols-7 gap-3 sm:gap-4 lg:gap-5 min-w-[900px]">
             {days.map((day) => (
-              <div key={day} className="flex flex-col gap-4">
+              <div key={day} className="flex flex-col gap-3 sm:gap-4">
                 {/* Column Header */}
-                <div className="bg-muted text-muted-foreground text-center py-3 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm">
+                <div className="bg-muted text-muted-foreground text-center py-2 sm:py-3 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm">
                   {day}
                 </div>
                 
@@ -174,22 +354,43 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
                 <ShiftSlot 
                   day={day} 
                   shiftTime="morning" 
-                  assignedEmployee={assignments[`${day}::morning`]}
+                  assignedEmployee={assignments[`${day}::morning`]?.employee}
+                  startTime={assignments[`${day}::morning`]?.start_time || '08:00'}
+                  endTime={assignments[`${day}::morning`]?.end_time || '14:00'}
                   onRemove={handleRemove}
+                  onEditTime={handleEditTime}
+                  isPast={isShiftPast(day, 'morning')}
                 />
                 
                 {/* Afternoon Slot */}
                 <ShiftSlot 
                   day={day} 
                   shiftTime="afternoon" 
-                  assignedEmployee={assignments[`${day}::afternoon`]}
+                  assignedEmployee={assignments[`${day}::afternoon`]?.employee}
+                  startTime={assignments[`${day}::afternoon`]?.start_time || '14:00'}
+                  endTime={assignments[`${day}::afternoon`]?.end_time || '23:00'}
                   onRemove={handleRemove}
+                  onEditTime={handleEditTime}
+                  isPast={isShiftPast(day, 'afternoon')}
                 />
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Shift Time Manager Modal */}
+      {editingSlot && (
+        <ShiftTimeManager
+          day={editingSlot.day}
+          shiftTime={editingSlot.shiftTime}
+          currentStartTime={assignments[`${editingSlot.day}::${editingSlot.shiftTime}`]?.start_time || '08:00'}
+          currentEndTime={assignments[`${editingSlot.day}::${editingSlot.shiftTime}`]?.end_time || '17:00'}
+          afternoonStartTime={assignments[`${editingSlot.day}::afternoon`]?.start_time}
+          onSave={saveShiftTime}
+          onClose={() => setEditingSlot(null)}
+        />
+      )}
     </DndContext>
   )
 }

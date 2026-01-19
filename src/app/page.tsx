@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Coffee, HardHat, Briefcase } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -8,7 +9,7 @@ export default function LandingPage() {
         {/* HEADER */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary text-primary-foreground rounded-2xl mb-4 shadow-2xl">
-            <span className="text-3xl">☕</span>
+            <Coffee className="w-8 h-8" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
             Morning Brew Empire
@@ -28,7 +29,7 @@ export default function LandingPage() {
           >
             <div className="text-center space-y-4">
               <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <span className="text-5xl">👔</span>
+                <Briefcase className="w-12 h-12" />
               </div>
               <h2 className="text-2xl font-bold text-card-foreground">
                 Admin Portal
@@ -54,7 +55,7 @@ export default function LandingPage() {
           >
             <div className="text-center space-y-4">
               <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <span className="text-5xl">👷</span>
+                <HardHat className="w-12 h-12" />
               </div>
               <h2 className="text-2xl font-bold text-card-foreground">
                 Worker Portal

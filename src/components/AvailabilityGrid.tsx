@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Lock, RotateCcw, AlertTriangle, Lightbulb, Check, X } from 'lucide-react'
 
 export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -111,14 +112,16 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
               variant="outline"
               size="sm"
               onClick={handleReset}
-              className="text-xs"
+              className="text-xs gap-1"
             >
-              🔄 Reset All
+              <RotateCcw className="w-3 h-3" />
+              Reset All
             </Button>
           )}
           {hasAssignedShifts && (
-            <Badge variant="destructive" className="text-xs">
-              🔒 Locked
+            <Badge variant="destructive" className="text-xs gap-1">
+              <Lock className="w-3 h-3" />
+              Locked
             </Badge>
           )}
         </div>
@@ -126,8 +129,9 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
       
       {hasAssignedShifts && (
         <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
-          <p className="text-sm text-muted-foreground">
-            ⚠️ Your availability is locked because you have shifts assigned. Contact your admin to make changes.
+          <p className="text-sm text-muted-foreground flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>Your availability is locked because you have shifts assigned. Contact your admin to make changes.</span>
           </p>
         </div>
       )}
@@ -171,7 +175,7 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
                         `}
                         title={`${day} ${shiftTime}: ${isAvailable ? 'Available' : 'Unavailable'}`}
                       >
-                        {isAvailable ? '✓' : '✕'}
+                        {isAvailable ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                       </button>
                     </td>
                   )
@@ -183,10 +187,13 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
       </div>
       
       <div className="mt-4 text-xs text-muted-foreground">
-        <p className="font-semibold mb-1">💡 How it works:</p>
+        <p className="font-semibold mb-1 flex items-center gap-1">
+          <Lightbulb className="w-3.5 h-3.5" />
+          How it works:
+        </p>
         <ul className="space-y-1 ml-4 list-disc">
           <li>Click cells to toggle availability for specific shifts</li>
-          <li>Green (✓) = Available, Red (✕) = Unavailable</li>
+          <li>Green (checkmark) = Available, Red (cross) = Unavailable</li>
           <li>Changes save automatically</li>
         </ul>
       </div>

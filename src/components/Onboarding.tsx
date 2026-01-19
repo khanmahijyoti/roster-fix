@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
+import { Coffee } from 'lucide-react'
 
 export function Onboarding({ user }: { user: any }) {
   const [isCreating, setIsCreating] = useState(false)
@@ -86,7 +87,7 @@ export function Onboarding({ user }: { user: any }) {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full">
         <CardHeader>
-          <CardTitle>Welcome to Morning Brew! ☕</CardTitle>
+          <CardTitle className="flex items-center gap-2">Welcome to Morning Brew! <Coffee className="w-5 h-5" /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">

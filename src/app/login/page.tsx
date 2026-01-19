@@ -49,9 +49,9 @@ export default function LoginPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-full max-w-md bg-card p-8 rounded-xl shadow-lg border border-border">
-          <h1 className="text-2xl font-bold text-center mb-6 text-card-foreground">Morning Brew Login</h1>
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md bg-card p-6 sm:p-8 rounded-xl shadow-lg border border-border">
+          <h1 className="text-xl sm:text-2xl font-bold text-center mb-6 text-card-foreground">Morning Brew Login</h1>
           <Auth
             supabaseClient={supabase}
             appearance={{ theme: ThemeSupa }}
@@ -63,5 +63,5 @@ export default function LoginPage() {
     )
   }
   
-  return <div className="p-10 text-center">Redirecting...</div>
+  return <div className="p-6 sm:p-10 text-center">Redirecting...</div>
 }
