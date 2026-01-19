@@ -17,7 +17,7 @@ export function DraggableEmployee({ employee, availability = {} }: DraggableEmpl
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   
   return (
     <div
@@ -30,24 +30,52 @@ export function DraggableEmployee({ employee, availability = {} }: DraggableEmpl
       <div className="font-semibold text-sm text-card-foreground">{employee.name}</div>
       <div className="text-xs text-muted-foreground mt-0.5">{employee.role}</div>
       
-      {/* Availability indicators */}
-      <div className="flex gap-1 mt-2">
-        {days.map(day => {
-          const isAvailable = availability[day] !== false // Default to true if not set
-          return (
-            <div
-              key={day}
-              className={`w-6 h-6 rounded text-[10px] flex items-center justify-center font-semibold border ${
-                isAvailable 
-                  ? 'bg-primary/20 text-primary border-primary/40' 
-                  : 'bg-destructive/20 text-destructive border-destructive/40'
-              }`}
-              title={`${day}: ${isAvailable ? 'Available' : 'Unavailable'}`}
-            >
-              {day[0]}
-            </div>
-          )
-        })}
+      {/* Availability indicators - Morning */}
+      <div className="mt-2">
+        <div className="text-[9px] text-muted-foreground font-medium mb-0.5">Morning</div>
+        <div className="flex gap-1">
+          {days.map(day => {
+            const key = `${day}-morning`
+            const isAvailable = availability[key] !== false // Default to true if not set
+            return (
+              <div
+                key={key}
+                className={`w-5 h-5 rounded text-[9px] flex items-center justify-center font-semibold border ${
+                  isAvailable 
+                    ? 'bg-primary/20 text-primary border-primary/40' 
+                    : 'bg-destructive/20 text-destructive border-destructive/40'
+                }`}
+                title={`${day} Morning: ${isAvailable ? 'Available' : 'Unavailable'}`}
+              >
+                {day[0]}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      
+      {/* Availability indicators - Afternoon */}
+      <div className="mt-1.5">
+        <div className="text-[9px] text-muted-foreground font-medium mb-0.5">Afternoon</div>
+        <div className="flex gap-1">
+          {days.map(day => {
+            const key = `${day}-afternoon`
+            const isAvailable = availability[key] !== false // Default to true if not set
+            return (
+              <div
+                key={key}
+                className={`w-5 h-5 rounded text-[9px] flex items-center justify-center font-semibold border ${
+                  isAvailable 
+                    ? 'bg-primary/20 text-primary border-primary/40' 
+                    : 'bg-destructive/20 text-destructive border-destructive/40'
+                }`}
+                title={`${day} Afternoon: ${isAvailable ? 'Available' : 'Unavailable'}`}
+              >
+                {day[0]}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

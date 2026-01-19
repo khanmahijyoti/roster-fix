@@ -84,16 +84,17 @@ export default function Home() {
     // 4. Load availability data for all workers
     const { data: availData } = await supabase
       .from('availability')
-      .select('employee_id, day_of_week, is_available')
+      .select('employee_id, day_of_week, shift_time, is_available')
       .in('employee_id', (eData || []).map(e => e.id))
     
-    // Convert to nested map: { employeeId: { day: isAvailable } }
+    // Convert to nested map: { employeeId: { "day-shift": isAvailable } }
     const availMap: Record<string, Record<string, boolean>> = {}
     availData?.forEach(row => {
       if (!availMap[row.employee_id]) {
         availMap[row.employee_id] = {}
       }
-      availMap[row.employee_id][row.day_of_week] = row.is_available
+      const key = `${row.day_of_week}-${row.shift_time}`
+      availMap[row.employee_id][key] = row.is_available
     })
     setAvailability(availMap)
   }
@@ -273,9 +274,38 @@ export default function Home() {
             {/* Schedule Board */}
             <Card>
               <CardHeader className="border-b border-border bg-muted/50">
-                <CardTitle className="text-lg font-semibold text-card-foreground">
-                  Weekly Schedule
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold text-card-foreground">
+                    Weekly Schedule
+                  </CardTitle>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedBusinessId) return
+                      
+                      const confirmed = confirm(
+                        '⚠️ WARNING!\n\nThis will delete ALL shift assignments for this location.\n\nAre you sure you want to continue?'
+                      )
+                      
+                      if (!confirmed) return
+                      
+                      const { error } = await supabase
+                        .from('shifts')
+                        .delete()
+                        .eq('business_id', selectedBusinessId)
+                      
+                      if (error) {
+                        alert('Error: ' + error.message)
+                      } else {
+                        alert('✅ All rosters have been reset for this location!')
+                        window.location.reload()
+                      }
+                    }}
+                  >
+                    🗑️ Reset All Rosters
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-6">
                 {selectedBusinessId ? (

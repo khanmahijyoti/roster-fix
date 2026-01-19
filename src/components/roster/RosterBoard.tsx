@@ -14,7 +14,7 @@ interface RosterBoardProps {
 
 export function RosterBoard({ employees, businessId, availability }: RosterBoardProps) {
   const [assignments, setAssignments] = useState<Record<string, any>>({})
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   // 1. Load Shifts
   useEffect(() => {
@@ -40,10 +40,11 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
     const employee = active.data.current?.employee
     const [day, shiftTime] = (over.id as string).split('::')
 
-    // 🛑 0. CHECK AVAILABILITY FIRST
-    const employeeAvailability = availability[employee.id]?.[day]
+    // 🛑 0. CHECK AVAILABILITY FIRST (for specific shift)
+    const availKey = `${day}-${shiftTime}`
+    const employeeAvailability = availability[employee.id]?.[availKey]
     if (employeeAvailability === false) {
-      alert(`🚫 UNAVAILABLE!\n\n${employee.name} has marked themselves as unavailable on ${day}.`)
+      alert(`🚫 UNAVAILABLE!\n\n${employee.name} has marked themselves as unavailable for ${day} ${shiftTime} shift.`)
       return
     }
 
@@ -160,8 +161,8 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
 
         {/* RIGHT: CALENDAR GRID (Flexible) */}
         <div className="flex-1 overflow-auto bg-background p-8">
-          {/* We add min-w-[900px] to force horizontal scroll if screen is too small */}
-          <div className="grid grid-cols-5 gap-5 min-w-[900px]">
+          {/* We add min-w-[1260px] to force horizontal scroll if screen is too small */}
+          <div className="grid grid-cols-7 gap-5 min-w-[1260px]">
             {days.map((day) => (
               <div key={day} className="flex flex-col gap-4">
                 {/* Column Header */}
