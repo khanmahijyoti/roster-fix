@@ -3,27 +3,41 @@ import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [session, setSession] = useState<any>(null)
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
 
   useEffect(() => {
+    // Check if we're in password reset mode
+    const resetMode = searchParams.get('reset') === 'true'
+    setShowPasswordReset(resetMode)
+
     // 1. Check if already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) checkRoleAndRedirect(session.user.id)
+      // Only redirect if NOT in reset mode
+      if (session && !resetMode) checkRoleAndRedirect(session.user.id)
     })
 
     // 2. Listen for login events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (session) checkRoleAndRedirect(session.user.id)
+      // Redirect after password update
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true)
+      }
+      // Only redirect if NOT in reset mode
+      if (session && !resetMode && event !== 'PASSWORD_RECOVERY') {
+        checkRoleAndRedirect(session.user.id)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [searchParams])
 
   // 3. Figure out where to send them
   async function checkRoleAndRedirect(userId: string) {
@@ -47,6 +61,25 @@ export default function LoginPage() {
     }
   }
 
+  // Show password reset form if in reset mode (regardless of session)
+  if (showPasswordReset) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md bg-card p-6 sm:p-8 rounded-xl shadow-lg border border-border">
+          <h1 className="text-xl sm:text-2xl font-bold text-center mb-6 text-card-foreground">Reset Password</h1>
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={[]}
+            view="update_password"
+            redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Show login form if no session
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
@@ -55,7 +88,8 @@ export default function LoginPage() {
           <Auth
             supabaseClient={supabase}
             appearance={{ theme: ThemeSupa }}
-            providers={[]} // We stick to Email/Password for now
+            providers={[]}
+            view="sign_in"
             redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`}
           />
         </div>
