@@ -10,21 +10,26 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
   const shifts = ['morning', 'afternoon']
   // Store availability: { "Mon-morning": true, "Mon-afternoon": false }
   const [availability, setAvailability] = useState<Record<string, boolean>>({})
-  const [hasAssignedShifts, setHasAssignedShifts] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
+
+  // Helper: Check if we're in the availability lock period (after Saturday 11:59 PM)
+  function isAvailabilityLocked(): boolean {
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const hour = now.getHours()
+    
+    // Lock after Saturday 11:59 PM (dayOfWeek=6, hour>=23) until Sunday night archive
+    return dayOfWeek === 6 && hour >= 23
+  }
+
+  // Helper: Check if current day is Sunday (admin scheduling day)
+  function isSunday(): boolean {
+    return new Date().getDay() === 0
+  }
 
   // 1. Load initial data
   useEffect(() => {
     async function load() {
-      // Check if employee has any assigned shifts
-      const { data: shifts, error: shiftsError } = await supabase
-        .from('shifts')
-        .select('id')
-        .eq('employee_id', employeeId)
-        .limit(1)
-      
-      setHasAssignedShifts((shifts && shifts.length > 0) || false)
-      
       // Load availability data
       const { data } = await supabase
         .from('availability')
@@ -45,8 +50,15 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
 
   // 2. Handle toggling
   async function toggleSlot(day: string, shiftTime: string) {
-    // Prevent changes if shifts are assigned
-    if (hasAssignedShifts) {
+    // Prevent changes after Saturday 11:59 PM (availability locked for scheduling)
+    if (isAvailabilityLocked()) {
+      alert(`🚫 Availability Locked!\n\nAvailability for next week is locked after Saturday 11:59 PM.\n\nYou can update availability again on Monday after the schedule is published.`)
+      return
+    }
+    
+    // Prevent changes on Sunday (admin scheduling day)
+    if (isSunday()) {
+      alert(`🚫 Schedule Publishing Day!\n\nSunday is reserved for admin to build the schedule.\n\nYou can update next week's availability starting Monday.`)
       return
     }
     
@@ -71,13 +83,18 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
 
   // 3. Handle Reset - Set all slots to available
   async function handleReset() {
-    if (hasAssignedShifts) {
-      alert('Cannot reset availability while you have shifts assigned. Contact your admin.')
+    if (isAvailabilityLocked()) {
+      alert('🚫 Availability is locked after Saturday 11:59 PM. Try again on Monday.')
+      return
+    }
+    
+    if (isSunday()) {
+      alert('🚫 Sunday is admin scheduling day. Try again on Monday.')
       return
     }
     
     const confirmed = confirm(
-      '⚠️ Reset Availability\n\nThis will mark you as AVAILABLE for all days and shifts.\n\nContinue?'
+      '⚠️ Reset Availability\n\nThis will mark you as AVAILABLE for all days and shifts NEXT WEEK.\n\nContinue?'
     )
     
     if (!confirmed) return
@@ -91,7 +108,7 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
     // Reset state to all available (empty object means everything defaults to true)
     setAvailability({})
     
-    alert('✅ Availability has been reset! You are now available for all shifts.')
+    alert('✅ Availability has been reset! You are now available for all shifts next week.')
   }
 
   if (isLoading) {
@@ -105,9 +122,18 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
   return (
     <div className="border border-border rounded-lg p-4 bg-card shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-card-foreground">Set Your Weekly Availability</h3>
+        <div>
+          <h3 className="font-bold text-card-foreground">Set Your Weekly Availability</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {isSunday() 
+              ? '📅 Sunday: Admin scheduling day - Updates resume Monday'
+              : isAvailabilityLocked()
+              ? '🔒 Locked: Availability locked until schedule is published'
+              : '📝 Setting availability for NEXT WEEK (Mon-Sun)'}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
-          {!hasAssignedShifts && (
+          {!isAvailabilityLocked() && !isSunday() && (
             <Button
               variant="outline"
               size="sm"
@@ -118,20 +144,24 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
               Reset All
             </Button>
           )}
-          {hasAssignedShifts && (
-            <Badge variant="destructive" className="text-xs gap-1">
+          {(isAvailabilityLocked() || isSunday()) && (
+            <Badge variant="secondary" className="text-xs gap-1">
               <Lock className="w-3 h-3" />
-              Locked
+              {isSunday() ? 'Scheduling Day' : 'Locked'}
             </Badge>
           )}
         </div>
       </div>
       
-      {hasAssignedShifts && (
-        <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
-          <p className="text-sm text-muted-foreground flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>Your availability is locked because you have shifts assigned. Contact your admin to make changes.</span>
+      {(isAvailabilityLocked() || isSunday()) && (
+        <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <p className="text-sm text-primary flex items-start gap-2">
+            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              {isSunday() 
+                ? 'Sunday is reserved for admin to build the schedule. You can update next week\'s availability starting Monday.'
+                : 'Availability is locked after Saturday 11:59 PM to allow admin to build the schedule. Updates resume Monday.'}
+            </span>
           </p>
         </div>
       )}
@@ -159,22 +189,30 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
                 {days.map(day => {
                   const key = `${day}-${shiftTime}`
                   const isAvailable = availability[key] !== false // Default to true if missing
+                  const isLocked = isAvailabilityLocked() || isSunday()
+                  const isDisabled = isLocked
+                  
                   return (
                     <td key={day} className="border border-border p-1">
                       <button
                         onClick={() => toggleSlot(day, shiftTime)}
-                        disabled={hasAssignedShifts}
+                        disabled={isDisabled}
                         className={`
-                          w-full h-12 rounded font-semibold text-xs transition-colors
-                          ${hasAssignedShifts ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          w-full h-12 rounded font-semibold text-xs transition-colors relative
+                          ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                           ${isAvailable 
                             ? 'bg-primary/20 border border-primary text-primary hover:bg-primary/30' 
                             : 'bg-destructive/20 border border-destructive text-destructive hover:bg-destructive/30'
                           }
-                          ${hasAssignedShifts && 'hover:bg-current'}
+                          ${isDisabled && 'hover:bg-current'}
                         `}
-                        title={`${day} ${shiftTime}: ${isAvailable ? 'Available' : 'Unavailable'}`}
+                        title={
+                          isLocked 
+                            ? `${day} ${shiftTime}: Locked (${isSunday() ? 'scheduling day' : 'after Sat 11:59 PM'})` 
+                            : `${day} ${shiftTime}: ${isAvailable ? 'Available' : 'Unavailable'}`
+                        }
                       >
+                        {isLocked && <Lock className="w-3 h-3 absolute top-1 right-1 opacity-50" />}
                         {isAvailable ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                       </button>
                     </td>
@@ -189,12 +227,15 @@ export function AvailabilityGrid({ employeeId }: { employeeId: string }) {
       <div className="mt-4 text-xs text-muted-foreground">
         <p className="font-semibold mb-1 flex items-center gap-1">
           <Lightbulb className="w-3.5 h-3.5" />
-          How it works:
+          Weekly Availability Schedule:
         </p>
         <ul className="space-y-1 ml-4 list-disc">
-          <li>Click cells to toggle availability for specific shifts</li>
-          <li>Green (checkmark) = Available, Red (cross) = Unavailable</li>
-          <li>Changes save automatically</li>
+          <li><strong>Monday-Saturday:</strong> Set availability for NEXT WEEK freely</li>
+          <li><strong>Saturday 11:59 PM:</strong> Availability LOCKS for next week</li>
+          <li><strong>Sunday:</strong> Admin builds schedule (no worker updates allowed)</li>
+          <li><strong>Sunday Night:</strong> Schedule published, availability resets for new week</li>
+          <li>Green (✓) = Available, Red (✗) = Unavailable</li>
+          <li><Lock className="w-3 h-3 inline" /> = Locked (cannot edit)</li>
         </ul>
       </div>
     </div>

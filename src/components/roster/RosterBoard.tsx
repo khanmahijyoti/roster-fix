@@ -1,8 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { DndContext, DragEndEvent, DragOverlay, pointerWithin } from '@dnd-kit/core'
-import { restrictToWindowEdges } from '@dnd-kit/modifiers'
-import { DraggableEmployee } from './DraggableEmployee'
 import { ShiftSlot } from './ShiftSlot'
 import { ShiftTimeManager } from '@/components/ShiftTimeManager'
 import { supabase } from '@/lib/supabase'
@@ -79,14 +76,23 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
     return currentTime >= shiftStartMinutes
   }
 
-  // 2. Handle Drag
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
+  // Helper: Get available employees for a specific slot
+  function getAvailableEmployees(day: string, shiftTime: string): any[] {
+    const availKey = `${day}-${shiftTime}`
     
-    if (!over) return
+    return employees.filter(emp => {
+      const empAvailability = availability[emp.id]?.[availKey]
+      // Employee is available if they haven't set availability yet (undefined) 
+      // or explicitly marked as available (true)
+      // Only unavailable if explicitly marked as false
+      return empAvailability !== false
+    })
+  }
 
-    const employee = active.data.current?.employee
-    const [day, shiftTime] = (over.id as string).split('::')
+  // Handle Assignment from dropdown
+  async function handleAssign(day: string, shiftTime: string, employeeId: string) {
+    const employee = employees.find(emp => emp.id === employeeId)
+    if (!employee) return
 
     // Check if shift is in the past
     if (isShiftPast(day, shiftTime)) {
@@ -131,9 +137,10 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
     const defaultStartTime = shiftTime === 'morning' ? '08:00' : '14:00'
     const defaultEndTime = shiftTime === 'morning' ? '14:00' : '23:00'
     
+    const slotId = `${day}::${shiftTime}`
     setAssignments((prev) => ({
       ...prev,
-      [over.id as string]: {
+      [slotId]: {
         employee,
         start_time: defaultStartTime,
         end_time: defaultEndTime,
@@ -162,7 +169,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
          // Ideally, you would revert the UI state here too
          setAssignments((prev) => {
             const newState = { ...prev }
-            delete newState[over.id as string]
+            delete newState[slotId]
             return newState
          })
       }
@@ -319,28 +326,8 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
   }
 
   return (
-    <DndContext 
-      onDragEnd={handleDragEnd}
-      modifiers={[restrictToWindowEdges]}
-      collisionDetection={pointerWithin}
-      autoScroll={false}
-    >
-      <div className="flex flex-col lg:flex-row h-full overflow-hidden">
-        {/* LEFT SIDEBAR: STAFF LIST (Fixed Width on desktop, full width on mobile) */}
-        <div className="w-full lg:w-72 bg-card border-b lg:border-r lg:border-b-0 border-border flex flex-col shrink-0 z-10 max-h-[300px] lg:max-h-none">
-          <div className="p-3 sm:p-4 border-b border-border bg-muted/30">
-             <h2 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Available Staff</h2>
-             <p className="text-[10px] text-muted-foreground/70 mt-1">Drag to assign shifts</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
-            {employees.map((emp) => (
-              <DraggableEmployee key={emp.id} employee={emp} availability={availability[emp.id] || {}} />
-            ))}
-          </div>
-        </div>
-
-        {/* RIGHT: CALENDAR GRID (Flexible) */}
-        <div className="flex-1 overflow-auto bg-background p-4 sm:p-6 lg:p-8">
+    <div className="h-full overflow-hidden">
+      <div className="h-full overflow-auto bg-background p-4 sm:p-6 lg:p-8">
           {/* Force horizontal scroll on smaller screens */}
           <div className="grid grid-cols-7 gap-3 sm:gap-4 lg:gap-5 min-w-[900px]">
             {days.map((day) => (
@@ -360,6 +347,8 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
                   onRemove={handleRemove}
                   onEditTime={handleEditTime}
                   isPast={isShiftPast(day, 'morning')}
+                  onAssign={handleAssign}
+                  availableEmployees={getAvailableEmployees(day, 'morning')}
                 />
                 
                 {/* Afternoon Slot */}
@@ -372,12 +361,13 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
                   onRemove={handleRemove}
                   onEditTime={handleEditTime}
                   isPast={isShiftPast(day, 'afternoon')}
+                  onAssign={handleAssign}
+                  availableEmployees={getAvailableEmployees(day, 'afternoon')}
                 />
               </div>
             ))}
           </div>
         </div>
-      </div>
 
       {/* Shift Time Manager Modal */}
       {editingSlot && (
@@ -391,6 +381,6 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
           onClose={() => setEditingSlot(null)}
         />
       )}
-    </DndContext>
+    </div>
   )
 }

@@ -10,98 +10,66 @@ export function Onboarding({ user }: { user: any }) {
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
 
-  async function handleCreateEmpire() {
+  async function handleCreateAccount() {
     setIsCreating(true)
     
-    // Check if this is the admin account
-    const isAdmin = user.email === 'khanmahijyoti@gmail.com'
-    console.log('Creating account for:', user.email, 'isAdmin:', isAdmin)
+    // All new users are workers - automatically join the first organization
+    const { data: orgs, error: orgError } = await supabase
+      .from('organizations')
+      .select('id')
+      .limit(1)
+      .single()
     
-    let organizationId: string
-    
-    if (isAdmin) {
-      // Admin: Create new organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({ name: 'My New Empire' })
-        .select()
-        .single()
-
-      if (orgError) {
-        alert('Error creating org: ' + orgError.message)
-        setIsCreating(false)
-        return
-      }
-      organizationId = org.id
-    } else {
-      // Worker: Automatically join the first/main organization
-      const { data: orgs, error: orgError } = await supabase
-        .from('organizations')
-        .select('id')
-        .limit(1)
-        .single()
-      
-      if (orgError || !orgs) {
-        alert('No organization found. Please contact your admin.')
-        setIsCreating(false)
-        return
-      }
-      
-      organizationId = orgs.id
+    if (orgError || !orgs) {
+      alert('No organization found. Please contact your admin to set up the organization first.')
+      setIsCreating(false)
+      return
     }
 
-    // 2. Create the Employee Record
+    // Create the Employee Record as worker
     const employeeData = {
-      id: user.id, // Link to Auth ID
-      name: user.email?.split('@')[0] || (isAdmin ? 'Admin' : 'Worker'),
+      id: user.id,
+      name: user.email?.split('@')[0] || 'Worker',
       email: user.email,
       auth_user_id: user.id,
-      organization_id: organizationId,
-      system_role: isAdmin ? 'admin' : 'worker',
-      role: isAdmin ? 'Owner' : 'Employee'
+      organization_id: orgs.id,
+      system_role: 'worker',
+      role: 'Employee'
     }
     
-    console.log('Inserting employee with data:', employeeData)
+    console.log('Creating worker account:', employeeData)
     
     const { error: empError } = await supabase
       .from('employees')
       .insert(employeeData)
 
     if (empError) {
-      alert('Error creating employee: ' + empError.message)
+      alert('Error creating account: ' + empError.message)
     } else {
-      // Success! Redirect based on role
-      if (isAdmin) {
-        router.push('/admin')
-      } else {
-        router.push('/worker')
-      }
+      // Success! Redirect to worker portal
+      router.push('/worker')
       window.location.reload()
     }
     setIsCreating(false)
   }
 
-  const isAdmin = user.email === 'khanmahijyoti@gmail.com'
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">Welcome to Morning Brew! <Coffee className="w-5 h-5" /></CardTitle>
+          <CardTitle className="flex items-center gap-2">Welcome! <Coffee className="w-5 h-5" /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">
-            {isAdmin 
-              ? 'Set up your organization to get started.'
-              : 'Click below to join as a worker. Your admin will assign you to shifts.'}
+            Click below to create your worker account and join the team.
           </p>
           
           <Button 
-            onClick={handleCreateEmpire} 
+            onClick={handleCreateAccount} 
             disabled={isCreating}
             className="w-full"
           >
-            {isCreating ? 'Setting up...' : (isAdmin ? 'Create Organization' : 'Join as Worker')}
+            {isCreating ? 'Creating Account...' : 'Join as Worker'}
           </Button>
         </CardContent>
       </Card>

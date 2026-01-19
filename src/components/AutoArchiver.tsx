@@ -4,8 +4,9 @@ import { supabase } from '@/lib/supabase'
 
 /**
  * AutoArchiver Component
- * Automatically archives weekly reports on Sunday night (11:59 PM)
- * or Monday morning when the page is first loaded.
+ * Automatically archives weekly reports on Sunday night at 11 PM
+ * Saves employee work hours, locations, week start/end dates
+ * Then resets all shift assignments for the new week
  * 
  * Usage: Add this component to admin layout or dashboard
  */
@@ -16,10 +17,10 @@ export function AutoArchiver() {
     // Check if we need to archive on component mount
     checkAndArchive()
 
-    // Set up interval to check every hour
+    // Set up interval to check every 15 minutes
     const interval = setInterval(() => {
       checkAndArchive()
-    }, 60 * 60 * 1000) // Check every hour
+    }, 15 * 60 * 1000) // Check every 15 minutes
 
     return () => clearInterval(interval)
   }, [])
@@ -35,16 +36,14 @@ export function AutoArchiver() {
       return
     }
 
-    // Check if it's Monday (day 1) or Sunday night (day 0) after 11 PM
+    // Check if it's Sunday (day 0) at or after 11 PM
     const dayOfWeek = now.getDay()
     const hour = now.getHours()
     
-    const shouldArchive = 
-      dayOfWeek === 1 || // Monday
-      (dayOfWeek === 0 && hour >= 23) // Sunday after 11 PM
+    const shouldArchive = dayOfWeek === 0 && hour >= 23 // Sunday after 11 PM
 
     if (shouldArchive && !hasCheckedToday) {
-      console.log('🗄️ Auto-archiving weekly reports...')
+      console.log('🗄️ Auto-archiving weekly reports and resetting shifts...')
       
       try {
         const { data, error } = await supabase.rpc('archive_weekly_reports')
@@ -52,7 +51,7 @@ export function AutoArchiver() {
         if (error) {
           // Check if function doesn't exist (migration not run)
           if (error.message?.includes('function') && error.message?.includes('does not exist')) {
-            console.warn('⚠️ Weekly reports migration not run yet. Run migration_weekly_reports.sql in Supabase.')
+            console.warn('⚠️ Weekly reports migration not run yet. Run migration_auto_reset_shifts.sql in Supabase.')
             // Mark as checked to avoid repeated warnings
             localStorage.setItem('lastArchiveDate', today)
             setHasCheckedToday(true)
@@ -62,10 +61,20 @@ export function AutoArchiver() {
         } else if (data && data.length > 0) {
           const result = data[0]
           console.log(`✅ Auto-archived ${result.archived_count} employee reports`)
+          console.log(`🗑️ Deleted ${result.shifts_deleted} shift assignments`)
+          console.log(`📅 Week: ${result.week_start} to ${result.week_end}`)
+          
+          // Show notification to user
+          if (typeof window !== 'undefined') {
+            alert(`✅ Weekly Report Generated!\n\n📊 Archived ${result.archived_count} employee reports\n🗑️ Reset ${result.shifts_deleted} shift assignments\n📅 Week: ${result.week_start} to ${result.week_end}\n\nReady for new week scheduling!`)
+          }
           
           // Mark that we've archived today
           localStorage.setItem('lastArchiveDate', today)
           setHasCheckedToday(true)
+          
+          // Reload page to show fresh data
+          window.location.reload()
         }
       } catch (err: any) {
         console.error('Auto-archive exception:', err?.message || err)

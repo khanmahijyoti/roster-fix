@@ -1,7 +1,7 @@
 'use client'
-import { useDroppable } from '@dnd-kit/core'
 import { clsx } from 'clsx'
-import { Clock, X } from 'lucide-react'
+import { Clock, X, ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ShiftSlotProps {
   day: string      // e.g., "Mon"
@@ -11,6 +11,8 @@ interface ShiftSlotProps {
   endTime?: string   // e.g., "14:00"
   onRemove?: (day: string, shiftTime: string) => void
   onEditTime?: (day: string, shiftTime: string) => void
+  onAssign?: (day: string, shiftTime: string, employeeId: string) => void
+  availableEmployees?: any[] // Employees available for this specific slot
   isPast?: boolean   // Whether this shift has started or ended
 }
 
@@ -22,16 +24,12 @@ export function ShiftSlot({
   endTime = '17:00',
   onRemove,
   onEditTime,
+  onAssign,
+  availableEmployees = [],
   isPast = false
 }: ShiftSlotProps) {
   // Unique ID for this specific slot (e.g., "Mon::morning")
   const slotId = `${day}::${shiftTime}`
-
-  const { isOver, setNodeRef } = useDroppable({
-    id: slotId,
-    data: { day, shiftTime },
-    disabled: isPast, // Disable drop zone if shift is in past
-  })
 
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -44,6 +42,12 @@ export function ShiftSlot({
     e.stopPropagation()
     if (onEditTime) {
       onEditTime(day, shiftTime)
+    }
+  }
+
+  const handleAssign = (employeeId: string) => {
+    if (onAssign && employeeId) {
+      onAssign(day, shiftTime, employeeId)
     }
   }
 
@@ -65,12 +69,9 @@ export function ShiftSlot({
 
   return (
     <div
-      ref={setNodeRef}
       className={clsx(
         "h-32 border rounded-lg p-3 transition-all duration-200 relative group",
-        isPast ? "bg-muted/50 border-muted opacity-60" : (
-          isOver ? "bg-primary/10 border-primary/50 ring-2 ring-primary/20" : "bg-card border-border"
-        ),
+        isPast ? "bg-muted/50 border-muted opacity-60" : "bg-card border-border",
         assignedEmployee && !isPast ? "bg-accent/50 border-accent" : ""
       )}
     >
@@ -117,7 +118,33 @@ export function ShiftSlot({
           )}
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground/50 text-center mt-2">Drag staff here</div>
+        <div className="mt-1">
+          {!isPast ? (
+            <Select onValueChange={handleAssign} value="" disabled={availableEmployees.length === 0}>
+              <SelectTrigger className="w-full h-8 text-xs">
+                <SelectValue placeholder={availableEmployees.length === 0 ? "None available" : "Select employee..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableEmployees.length > 0 ? (
+                  availableEmployees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span>{emp.name}</span>
+                        <span className="text-muted-foreground text-[10px]">({emp.role || 'Worker'})</span>
+                      </div>
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled className="text-xs text-muted-foreground">
+                    None available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="text-xs text-muted-foreground/50 text-center">No assignment</div>
+          )}
+        </div>
       )}
     </div>
   )

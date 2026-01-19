@@ -21,14 +21,21 @@ export default function WorkerPortal() {
         return
       }
 
-      // 2. Find their Employee ID and Name
+      // 2. Find their Employee ID, Name, and Role
       const { data: emp } = await supabase
         .from('employees')
-        .select('id, name')
+        .select('id, name, system_role')
         .eq('auth_user_id', user.id)
         .single()
       
       if (emp) {
+        // Check if user is worker, if not redirect to admin panel
+        if (emp.system_role === 'admin') {
+          console.log('User is admin, redirecting to admin panel')
+          router.push('/admin')
+          return
+        }
+        
         setEmployeeId(emp.id)
         setEmployeeName(emp.name)
       }

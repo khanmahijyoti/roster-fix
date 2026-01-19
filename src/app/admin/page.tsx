@@ -38,7 +38,7 @@ export default function Home() {
       // 2. Check if Employee Record Exists
       const { data: emp, error } = await supabase
         .from('employees')
-        .select('organization_id, id')
+        .select('organization_id, id, system_role')
         .eq('auth_user_id', session.user.id)
         .maybeSingle()
 
@@ -49,6 +49,13 @@ export default function Home() {
       setHasEmployeeProfile(!!emp)
 
       if (emp) {
+        // Check if user is admin, if not redirect to worker portal
+        if (emp.system_role !== 'admin') {
+          console.log('User is not admin, redirecting to worker portal')
+          router.push('/worker')
+          return
+        }
+        
         console.log('Setting org and employee IDs:', { orgId: emp.organization_id, empId: emp.id })
         setOrgId(emp.organization_id)
         setCurrentEmployeeId(emp.id)
@@ -283,7 +290,51 @@ export default function Home() {
               </CardContent>
             </Card>
 
+            {/* EMPLOYEES SECTION */}
+            {activeNav === 'employees' && (
+              <Card>
+                <CardHeader className="border-b border-border bg-muted/50">
+                  <CardTitle className="text-lg font-semibold text-card-foreground">
+                    Employee List
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {employees.length > 0 ? (
+                    <div className="space-y-3">
+                      {employees.map((emp) => (
+                        <div
+                          key={emp.id}
+                          className="flex items-center justify-between p-4 border border-border rounded-lg bg-card hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-card-foreground">{emp.name}</p>
+                              <p className="text-sm text-muted-foreground">{emp.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="capitalize">
+                              {emp.role || 'Worker'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                      <Users className="w-12 h-12 mb-3 opacity-30" />
+                      <p>No employees found</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Schedule Board */}
+            {activeNav === 'schedule' && (
             <Card>
               <CardHeader className="border-b border-border bg-muted/50">
                 <div className="flex items-center justify-between">
@@ -331,6 +382,7 @@ export default function Home() {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
         </main>
 
