@@ -9,9 +9,10 @@ import { supabase } from '@/lib/supabase'
 interface RosterBoardProps {
   employees: any[]
   businessId: string
+  availability: Record<string, Record<string, boolean>>
 }
 
-export function RosterBoard({ employees, businessId }: RosterBoardProps) {
+export function RosterBoard({ employees, businessId, availability }: RosterBoardProps) {
   const [assignments, setAssignments] = useState<Record<string, any>>({})
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 
@@ -38,6 +39,13 @@ export function RosterBoard({ employees, businessId }: RosterBoardProps) {
 
     const employee = active.data.current?.employee
     const [day, shiftTime] = (over.id as string).split('::')
+
+    // 🛑 0. CHECK AVAILABILITY FIRST
+    const employeeAvailability = availability[employee.id]?.[day]
+    if (employeeAvailability === false) {
+      alert(`🚫 UNAVAILABLE!\n\n${employee.name} has marked themselves as unavailable on ${day}.`)
+      return
+    }
 
     console.log(`🔍 Checking conflict for ${employee.name} on ${day} ${shiftTime}...`)
 
@@ -145,7 +153,7 @@ export function RosterBoard({ employees, businessId }: RosterBoardProps) {
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {employees.map((emp) => (
-              <DraggableEmployee key={emp.id} employee={emp} />
+              <DraggableEmployee key={emp.id} employee={emp} availability={availability[emp.id] || {}} />
             ))}
           </div>
         </div>

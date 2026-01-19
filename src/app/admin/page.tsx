@@ -20,6 +20,7 @@ export default function Home() {
   const [session, setSession] = useState<any>(null)
   const [hasEmployeeProfile, setHasEmployeeProfile] = useState<boolean | null>(null)
   const [activeNav, setActiveNav] = useState('schedule')
+  const [availability, setAvailability] = useState<Record<string, Record<string, boolean>>>({})
 
   useEffect(() => {
     async function loadAdminContext() {
@@ -79,6 +80,22 @@ export default function Home() {
       .eq('system_role', 'worker')
     console.log('Workers only:', { eData, eError })
     setEmployees(eData || [])
+    
+    // 4. Load availability data for all workers
+    const { data: availData } = await supabase
+      .from('availability')
+      .select('employee_id, day_of_week, is_available')
+      .in('employee_id', (eData || []).map(e => e.id))
+    
+    // Convert to nested map: { employeeId: { day: isAvailable } }
+    const availMap: Record<string, Record<string, boolean>> = {}
+    availData?.forEach(row => {
+      if (!availMap[row.employee_id]) {
+        availMap[row.employee_id] = {}
+      }
+      availMap[row.employee_id][row.day_of_week] = row.is_available
+    })
+    setAvailability(availMap)
   }
 
   async function refreshBusinesses() {
@@ -262,7 +279,7 @@ export default function Home() {
               </CardHeader>
               <CardContent className="p-6">
                 {selectedBusinessId ? (
-                  <RosterBoard employees={employees} businessId={selectedBusinessId} />
+                  <RosterBoard employees={employees} businessId={selectedBusinessId} availability={availability} />
                 ) : (
                   <div className="flex items-center justify-center h-64 text-muted-foreground">
                     Select a location to view schedule
