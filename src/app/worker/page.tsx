@@ -1,7 +1,7 @@
 'use client'
 import { AvailabilityGrid } from '@/components/AvailabilityGrid'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { HardHat, Lightbulb, Calendar, Clock } from 'lucide-react'
 
 export default function WorkerPortal() {
   const router = useRouter()
+  const supabase = createClient()
   const [employeeId, setEmployeeId] = useState<string | null>(null)
   const [employeeName, setEmployeeName] = useState<string>('')
 

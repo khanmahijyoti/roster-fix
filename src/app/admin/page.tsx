@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { RosterBoard } from '@/components/roster/RosterBoard'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,7 @@ import { AutoArchiver } from '@/components/AutoArchiver'
 
 export default function Home() {
   const router = useRouter()
+  const supabase = createClient()
   const [businesses, setBusinesses] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null)

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+const supabase = createClient()
 import { BarChart3 } from 'lucide-react'
 
 export function ManagerDashboard() {

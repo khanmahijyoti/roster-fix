@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+const supabase = createClient()
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, Calendar, MapPin } from 'lucide-react'
 

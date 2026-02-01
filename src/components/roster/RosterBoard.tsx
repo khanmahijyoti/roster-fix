@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { ShiftSlot } from './ShiftSlot'
 import { ShiftTimeManager } from '@/components/ShiftTimeManager'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 
 interface RosterBoardProps {
   employees: any[]
@@ -18,6 +18,7 @@ interface ShiftData {
 }
 
 export function RosterBoard({ employees, businessId, availability }: RosterBoardProps) {
+  const supabase = createClient()
   const [assignments, setAssignments] = useState<Record<string, ShiftData>>({})
   const [editingSlot, setEditingSlot] = useState<{ day: string; shiftTime: string } | null>(null)
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']

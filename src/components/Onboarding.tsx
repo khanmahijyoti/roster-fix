@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
@@ -9,6 +9,7 @@ import { Coffee } from 'lucide-react'
 export function Onboarding({ user }: { user: any }) {
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
   async function handleCreateAccount() {
     setIsCreating(true)
