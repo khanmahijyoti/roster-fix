@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-browser'
 const supabase = createClient()
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, Calendar, MapPin } from 'lucide-react'
+import { getCurrentWeekStart } from '@/lib/week-utils'
 
 interface WeeklyHoursDisplayProps {
   employeeId: string
@@ -25,6 +26,8 @@ export function WeeklyHoursDisplay({ employeeId }: WeeklyHoursDisplayProps) {
 
   useEffect(() => {
     async function loadShifts() {
+      const weekStart = getCurrentWeekStart()
+      
       const { data, error } = await supabase
         .from('shifts')
         .select(`
@@ -35,6 +38,7 @@ export function WeeklyHoursDisplay({ employeeId }: WeeklyHoursDisplayProps) {
           businesses (name)
         `)
         .eq('employee_id', employeeId)
+        .eq('week_start', weekStart)
         .order('day_of_week')
 
       if (error) {

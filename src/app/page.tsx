@@ -20,18 +20,20 @@ export default function LandingPage() {
       // User is logged in, check their role
       const { data: emp } = await supabase
         .from('employees')
-        .select('system_role')
+        .select('system_role, role')
         .eq('auth_user_id', session.user.id)
         .maybeSingle()
 
       if (!emp) {
-        // No employee profile, redirect to login (onboarding will handle it)
-        router.push('/login')
+        // No employee profile, redirect to admin (will show access denied message)
+        router.push('/admin')
         return
       }
 
-      // Redirect based on role
-      if (emp.system_role === 'admin') {
+      // Redirect based on role (admin access for system_role='admin' OR role='Owner')
+      const hasAdminAccess = emp.system_role === 'admin' || emp.role === 'Owner'
+      
+      if (hasAdminAccess) {
         router.push('/admin')
       } else {
         router.push('/worker')

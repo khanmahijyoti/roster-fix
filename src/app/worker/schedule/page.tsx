@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from 'next/navigation'
 import { Clock, Calendar, MapPin, ArrowLeft, Coffee, AlertCircle, RefreshCw } from 'lucide-react'
+import { getCurrentWeekStart } from '@/lib/week-utils'
 
 interface Shift {
   id: string
@@ -84,6 +85,8 @@ export default function WorkerSchedulePage() {
   async function loadShifts(empId: string) {
     setIsRefreshing(true)
     try {
+      const weekStart = getCurrentWeekStart()
+      
       const { data, error } = await supabase
         .from('shifts')
         .select(`
@@ -100,6 +103,7 @@ export default function WorkerSchedulePage() {
           )
         `)
         .eq('employee_id', empId)
+        .eq('week_start', weekStart)
 
       if (error) {
         console.error('Error loading shifts:', error)

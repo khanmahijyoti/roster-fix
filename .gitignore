@@ -41,3 +41,22 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+AGENTS.md
+AUTHENTICATION_SETUP.md
+automated_simulation.sql
+cleanup_test_data.sql
+CODEBASE_REVIEW_SUMMARY.md
+diagnostic_check_owner.sql
+fix_duplicate_employees.sql
+migration_add_week_start_to_shifts.sql
+ONBOARDING_REMOVED.md
+ONBOARDING_UPDATE.md
+OWNER_ADMIN_ACCESS.md
+REFACTORING_COMPLETE.md
+setup_authenticated_user.sql
+SIMULATION_GUIDE.md
+test_data_seed.sql
+TEST_SCENARIOS.md
+UI_TO_DATABASE_TESTING.md
+validation_queries.sql
+visualization_queries.sql

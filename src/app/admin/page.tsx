@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from 'next/navigation'
-import { Onboarding } from '@/components/Onboarding'
 import { AddBusiness } from '@/components/AddBusiness'
 import { Coffee, Calendar, Users, MapPin, BarChart3, Settings, Trash2 } from 'lucide-react'
 import { AutoArchiver } from '@/components/AutoArchiver'
+import { getCurrentWeekStart } from '@/lib/week-utils'
 
 export default function Home() {
   const router = useRouter()
@@ -39,7 +39,7 @@ export default function Home() {
       // 2. Check if Employee Record Exists
       const { data: emp, error } = await supabase
         .from('employees')
-        .select('organization_id, id, system_role')
+        .select('organization_id, id, system_role, role')
         .eq('auth_user_id', session.user.id)
         .maybeSingle()
 
@@ -50,9 +50,11 @@ export default function Home() {
       setHasEmployeeProfile(!!emp)
 
       if (emp) {
-        // Check if user is admin, if not redirect to worker portal
-        if (emp.system_role !== 'admin') {
-          console.log('User is not admin, redirecting to worker portal')
+        // Check if user has admin access (system_role = 'admin' OR role = 'Owner')
+        const hasAdminAccess = emp.system_role === 'admin' || emp.role === 'Owner'
+        
+        if (!hasAdminAccess) {
+          console.log('User does not have admin access, redirecting to worker portal')
           router.push('/worker')
           return
         }
@@ -131,9 +133,35 @@ export default function Home() {
     )
   }
 
-  // 2. User is logged in but has no data -> SHOW ONBOARDING
+  // 2. User is logged in but has no employee profile -> Show access denied
   if (session && !hasEmployeeProfile) {
-    return <Onboarding user={session.user} />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Coffee className="w-5 h-5" />
+              Access Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              Your account has not been set up yet. Please contact your administrator to be added to the system.
+            </p>
+            <Button 
+              variant="outline"
+              onClick={async () => {
+                await supabase.auth.signOut()
+                router.push('/login')
+              }}
+              className="w-full"
+            >
+              Sign Out
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   // 3. User is fully set up -> SHOW DASHBOARD
@@ -349,7 +377,7 @@ export default function Home() {
                       if (!selectedBusinessId) return
                       
                       const confirmed = confirm(
-                        '⚠️ WARNING!\n\nThis will delete ALL shift assignments for this location.\n\nAre you sure you want to continue?'
+                        '⚠️ WARNING!\n\nThis will delete ALL shift assignments for this location for the current week.\n\nAre you sure you want to continue?'
                       )
                       
                       if (!confirmed) return
@@ -358,6 +386,7 @@ export default function Home() {
                         .from('shifts')
                         .delete()
                         .eq('business_id', selectedBusinessId)
+                        .eq('week_start', getCurrentWeekStart())
                       
                       if (error) {
                         alert('Error: ' + error.message)

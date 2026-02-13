@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ShiftSlot } from './ShiftSlot'
 import { ShiftTimeManager } from '@/components/ShiftTimeManager'
 import { createClient } from '@/lib/supabase-browser'
+import { getCurrentWeekStart } from '@/lib/week-utils'
 
 interface RosterBoardProps {
   employees: any[]
@@ -26,6 +27,8 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
   // 1. Load Shifts
   useEffect(() => {
     async function loadShifts() {
+      const weekStart = getCurrentWeekStart()
+      
       const { data } = await supabase
         .from('shifts')
         .select(`
@@ -33,6 +36,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
           employees (*)
         `)
         .eq('business_id', businessId)
+        .eq('week_start', weekStart)
       
       if (data) {
         const newAssignments: Record<string, ShiftData> = {}
@@ -159,7 +163,8 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
         day_of_week: day,
         shift_time: shiftTime,
         start_time: defaultStartTime,
-        end_time: defaultEndTime
+        end_time: defaultEndTime,
+        week_start: getCurrentWeekStart()
       })
 
     if (error) {
@@ -205,6 +210,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
       .eq('business_id', businessId)
       .eq('day_of_week', day)
       .eq('shift_time', shiftTime)
+      .eq('week_start', getCurrentWeekStart())
 
     if (error) {
       console.error("Remove error:", error)
@@ -269,6 +275,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
       .eq('business_id', businessId)
       .eq('day_of_week', day)
       .eq('shift_time', shiftTime)
+      .eq('week_start', getCurrentWeekStart())
 
     if (error) {
       console.error("Update error:", error)
@@ -322,6 +329,7 @@ export function RosterBoard({ employees, businessId, availability }: RosterBoard
           .eq('business_id', businessId)
           .eq('day_of_week', day)
           .eq('shift_time', 'afternoon')
+          .eq('week_start', getCurrentWeekStart())
       }
     }
   }

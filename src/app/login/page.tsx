@@ -28,7 +28,7 @@ export default function LoginPage() {
   async function checkRoleAndRedirect(userId: string) {
     const { data: emp } = await supabase
       .from('employees')
-      .select('system_role')
+      .select('system_role, role')
       .eq('auth_user_id', userId)
       .maybeSingle()
 
@@ -37,7 +37,10 @@ export default function LoginPage() {
       return
     }
 
-    if (emp.system_role === 'admin') {
+    // Redirect based on role (admin access for system_role='admin' OR role='Owner')
+    const hasAdminAccess = emp.system_role === 'admin' || emp.role === 'Owner'
+    
+    if (hasAdminAccess) {
       router.push('/admin')
     } else {
       router.push('/worker')
